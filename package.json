@@ -1,0 +1,28 @@
+{
+  "name": "easy-front-design",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "extension",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:extension": "npm run dev -w extension",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:extension\"",
+    "build:server": "npm run build -w server",
+    "build:extension": "npm run build -w extension",
+    "build": "npm run build:server && npm run build:extension",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "npm run start -w server",
+    "start:mcp": "npm run start:mcp -w server"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.3",
+    "concurrently": "^8.2.2",
+    "jsdom": "^29.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.3"
+  }
+}

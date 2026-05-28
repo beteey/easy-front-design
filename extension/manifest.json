@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Easy Design",
+  "description": "网页端设计辅助插件 — 选择元素，输入修改意见，AI 直接帮你改代码",
+  "version": "0.1.0",
+  "icons": {},
+  "action": {
+    "default_title": "Toggle Easy Design"
+  },
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [],
+  "host_permissions": ["http://127.0.0.1:3771/*"]
+}

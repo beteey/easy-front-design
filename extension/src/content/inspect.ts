@@ -613,6 +613,10 @@ export class InspectMode {
     this.panel.show(ctx)
   }
 
+  isActive(): boolean {
+    return this.active
+  }
+
   destroy(): void {
     this.disable()
     this.panel.destroy()
