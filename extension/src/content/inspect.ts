@@ -333,7 +333,9 @@ export class InspectPanel {
   private ctx: ElementContext | null = null
   private messages: Array<{ role: 'user' | 'assistant'; content: string }> = []
   private pendingRequestId: string | null = null
+  private pendingMode: 'suggest' | 'develop' | null = null
   private wsUnsubscribe: (() => void) | null = null
+  private aiChatId = 0
 
   constructor() {
     this.host = document.createElement('div')
@@ -344,6 +346,30 @@ export class InspectPanel {
     document.body.appendChild(this.host)
 
     this.wsUnsubscribe = wsClient.onMessage((msg) => {
+      // ── AI 直接聊天响应（建议模式）──
+      if (msg.type === 'ai:chunk') {
+        if (msg.requestId !== this.pendingRequestId) return
+        const last = this.messages[this.messages.length - 1]
+        if (last && last.role === 'assistant') {
+          last.content += msg.text
+          this.updateLastAssistantMessage(last.content)
+        }
+      }
+      if (msg.type === 'ai:done') {
+        if (msg.requestId !== this.pendingRequestId) return
+        this.pendingRequestId = null
+        this.pendingMode = null
+        this.setButtonsDisabled(false)
+      }
+      if (msg.type === 'ai:error') {
+        if (msg.requestId !== this.pendingRequestId) return
+        this.updateLastAssistantMessage(`❌ AI 错误：${msg.error}`)
+        this.pendingRequestId = null
+        this.pendingMode = null
+        this.setButtonsDisabled(false)
+      }
+
+      // ── 队列响应（开发模式）──
       if (msg.type === 'design:queued') {
         this.pendingRequestId = msg.id
         this.updateLastAssistantMessage('⏳ 已发送，等待 Claude Code...')
@@ -359,12 +385,14 @@ export class InspectPanel {
           : `✅ 已修改：${(msg.changedFiles ?? []).join(', ') || (msg.summary ?? '完成')}`
         this.updateLastAssistantMessage(text)
         this.pendingRequestId = null
+        this.pendingMode = null
         this.setButtonsDisabled(false)
       }
       if (msg.type === 'design:failed') {
         if (msg.id !== this.pendingRequestId) return
         this.updateLastAssistantMessage(`❌ 失败：${msg.error}`)
         this.pendingRequestId = null
+        this.pendingMode = null
         this.setButtonsDisabled(false)
       }
     })
@@ -501,25 +529,54 @@ export class InspectPanel {
 
     this.addMessage('user', text)
     if (textarea) textarea.value = ''
-
-    this.addMessage('assistant', '⏳ 发送中...')
     this.setButtonsDisabled(true)
 
-    const { tag, id, classList, computedStyles, textContent, fiber } = this.ctx!
-    wsClient.send({
-      type: 'design:request',
-      action,
-      userMessage: text,
-      element: {
-        tag,
-        id,
-        classList,
-        textContent,
-        computedStyles,
-        sourceFile: fiber.sourceFile,
-        sourceLine: fiber.sourceLine,
-      },
-    })
+    if (action === 'suggest') {
+      // 建议模式：直接调 AI，流式返回
+      const requestId = `chat-${++this.aiChatId}`
+      this.pendingRequestId = requestId
+      this.pendingMode = 'suggest'
+
+      const { tag, id, classList, fiber } = this.ctx!
+      const componentName = fiber.componentName ?? tag
+      const sourceFile = fiber.sourceFile
+      const sourceLine = fiber.sourceLine
+      const location = sourceFile ? `源文件：\`${sourceFile}:${sourceLine ?? 1}\`` : ''
+
+      const systemPrompt = `你是一个前端设计助手。用户会告诉你网页上某个元素想怎么改，你给出具体的 CSS 或 HTML 修改建议。
+当前选中元素：${componentName}（<${tag}>）
+${location}
+简洁明了地回答，直接给出建议。`
+
+      this.addMessage('assistant', '')
+      wsClient.send({
+        type: 'ai:chat',
+        requestId,
+        messages: [
+          { role: 'user', content: `${systemPrompt}\n\n用户需求：${text}` },
+        ],
+      })
+    } else {
+      // 开发模式：走队列，等 Claude Code 处理
+      this.addMessage('assistant', '⏳ 发送中...')
+      this.pendingMode = 'develop'
+
+      const { tag, id, classList, computedStyles, textContent, fiber } = this.ctx!
+      wsClient.send({
+        type: 'design:request',
+        action,
+        userMessage: text,
+        element: {
+          tag,
+          id,
+          classList,
+          textContent,
+          computedStyles,
+          sourceFile: fiber.sourceFile,
+          sourceLine: fiber.sourceLine,
+        },
+      })
+    }
   }
 
   private addMessage(role: 'user' | 'assistant', content: string): void {

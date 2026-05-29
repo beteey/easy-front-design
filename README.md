@@ -64,6 +64,25 @@ export OPENAI_API_KEY=your-key
 
 - VS Code → 命令面板 → Shell Command: Install 'code' command in PATH
 
+## 一键测试
+
+扩展已预构建好（`extension/dist/`），可以快速测试：
+
+```bash
+# 1. 启动 server + 打开测试页面
+bash test/start.sh
+```
+
+然后在 Chrome 中：
+
+1. 打开 `chrome://extensions`
+2. 开启右上角「开发者模式」
+3. 点击「加载已解压的扩展程序」
+4. 选择项目目录下的 **`extension`** 文件夹（不是 `extension/dist`）
+5. 回到测试页面，按 `Cmd+Shift+D` 开始体验
+
+> 测试页面位于 `test/index.html`，包含多种 UI 元素（卡片、表单、布局），方便测试元素选择功能。
+
 ## 项目结构
 
 ```
@@ -90,6 +109,9 @@ easy-front-design/
 │       ├── openai.ts          # OpenAI API 流式调用
 │       ├── vscode.ts          # VS Code 集成
 │       └── fileReader.ts      # 源文件读取
+├── test/                      # 测试页面
+│   ├── index.html             # 测试页面（多种 UI 元素）
+│   └── start.sh               # 一键启动脚本
 ├── tests/                     # 测试文件
 │   ├── unit/                  # 单元测试
 │   ├── api/                   # API 集成测试

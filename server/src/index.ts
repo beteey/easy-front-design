@@ -2,6 +2,7 @@
  * Entry point — starts the HTTP + WebSocket server.
  */
 
+import 'dotenv/config'
 import createApp from './app.js'
 import { config } from './config.js'
 
