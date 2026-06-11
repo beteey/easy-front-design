@@ -26,11 +26,13 @@ export interface DesignRequest {
   status: RequestStatus
   createdAt: number
   claimedAt?: number
+  claimedBy?: string
   completedAt?: number
   changedFiles?: string[]
   summary?: string
   content?: string
   error?: string
+  progress?: string
 }
 
 export interface CompletePayload {
@@ -47,7 +49,7 @@ const CLEANUP_INTERVAL_MS = 60_000 // 1 minute
 class DesignQueue extends EventEmitter {
   private pending: string[] = []
   private requestsById = new Map<string, DesignRequest>()
-  private inFlight = new Map<string, { claimedAt: number }>()
+  private inFlight = new Map<string, { claimedAt: number; lastSeen: number; workerId?: string }>()
   private cleanupTimer: ReturnType<typeof setInterval>
 
   constructor() {
@@ -73,9 +75,9 @@ class DesignQueue extends EventEmitter {
     return request
   }
 
-  async dequeue(timeoutMs = 30_000): Promise<DesignRequest | null> {
+  async dequeue(timeoutMs = 30_000, workerId?: string): Promise<DesignRequest | null> {
     if (this.pending.length > 0) {
-      return this.claim(this.pending.shift()!)
+      return this.claim(this.pending.shift()!, workerId)
     }
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -86,7 +88,7 @@ class DesignQueue extends EventEmitter {
       const onEnqueue = () => {
         clearTimeout(timer)
         if (this.pending.length > 0) {
-          resolve(this.claim(this.pending.shift()!))
+          resolve(this.claim(this.pending.shift()!, workerId))
         } else {
           resolve(null)
         }
@@ -96,11 +98,13 @@ class DesignQueue extends EventEmitter {
     })
   }
 
-  private claim(id: string): DesignRequest {
+  private claim(id: string, workerId?: string): DesignRequest {
     const request = this.requestsById.get(id)!
     request.status = 'claimed'
     request.claimedAt = Date.now()
-    this.inFlight.set(id, { claimedAt: request.claimedAt })
+    request.claimedBy = workerId
+    const now = Date.now()
+    this.inFlight.set(id, { claimedAt: now, lastSeen: now, workerId })
     return request
   }
 
@@ -129,14 +133,29 @@ class DesignQueue extends EventEmitter {
     return this.requestsById.get(id)
   }
 
+  heartbeat(id: string, workerId?: string): boolean {
+    const flight = this.inFlight.get(id)
+    if (!flight) return false
+    if (workerId && flight.workerId && flight.workerId !== workerId) return false
+    flight.lastSeen = Date.now()
+    return true
+  }
+
+  updateProgress(id: string, message: string): DesignRequest | undefined {
+    const request = this.requestsById.get(id)
+    if (!request || request.status !== 'claimed') return undefined
+    request.progress = message
+    return request
+  }
+
   getAll(): DesignRequest[] {
     return Array.from(this.requestsById.values())
   }
 
   private cleanupStale(): void {
     const cutoff = Date.now() - STALE_MS
-    for (const [id, { claimedAt }] of this.inFlight) {
-      if (claimedAt < cutoff) {
+    for (const [id, { lastSeen }] of this.inFlight) {
+      if (lastSeen < cutoff) {
         const request = this.requestsById.get(id)
         if (request) {
           request.status = 'failed'
@@ -158,7 +177,7 @@ class DesignQueue extends EventEmitter {
 
   /** For test use only — inserts an id into inFlight directly */
   _addToInFlight(id: string, claimedAt: number): void {
-    this.inFlight.set(id, { claimedAt })
+    this.inFlight.set(id, { claimedAt, lastSeen: claimedAt })
   }
 
   /** For test use only — runs stale cleanup synchronously */

@@ -15,6 +15,7 @@ export type ServerMessage =
   | { type: 'ai:error'; error: string; requestId: string }
   | { type: 'design:queued'; id: string }
   | { type: 'design:processing'; id: string }
+  | { type: 'design:progress'; id: string; message: string }
   | { type: 'design:done'; id: string; action?: 'suggest' | 'develop'; content?: string; summary?: string; changedFiles?: string[] }
   | { type: 'design:failed'; id: string; error: string }
   | { type: 'pong' }
@@ -30,9 +31,12 @@ export interface ChatMessage {
   content: string
 }
 
+type StatusHandler = (online: boolean) => void
+
 class WSClient {
   private ws: WebSocket | null = null
   private handlers = new Set<MessageHandler>()
+  private statusHandlers = new Set<StatusHandler>()
   private reconnectDelay = 1000
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private connected = false
@@ -47,6 +51,7 @@ class WSClient {
         this.connected = true
         this.reconnectDelay = 1000
         this.send({ type: 'ping' })
+        this.statusHandlers.forEach((h) => h(true))
       }
 
       this.ws.onmessage = (event) => {
@@ -60,6 +65,7 @@ class WSClient {
 
       this.ws.onclose = () => {
         this.connected = false
+        this.statusHandlers.forEach((h) => h(false))
         this.scheduleReconnect()
       }
 
@@ -89,6 +95,11 @@ class WSClient {
   onMessage(handler: MessageHandler): () => void {
     this.handlers.add(handler)
     return () => this.handlers.delete(handler)
+  }
+
+  onStatusChange(handler: StatusHandler): () => void {
+    this.statusHandlers.add(handler)
+    return () => this.statusHandlers.delete(handler)
   }
 
   isConnected(): boolean {

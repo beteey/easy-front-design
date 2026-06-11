@@ -45,19 +45,33 @@
     .hero {
       text-align: center;
       padding: 80px 32px 48px;
+      background: linear-gradient(180deg, #fafafa 0%, #f0f0f5 100%);
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+    .hero h1 {
+      position: relative;
+      z-index: 1;
+      background: linear-gradient(135deg, #a1a1a6 0%, #5856D6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      position: relative;
+      z-index: 1;
+      color: #6e6e73;
+    }
+    .hero kbd {
+      background: #e8e8ed !important;
+      color: #1d1d1f !important;
     }
     .hero h1 {
       font-size: 48px;
       font-weight: 700;
       letter-spacing: -0.02em;
       margin-bottom: 16px;
-      background: linear-gradient(135deg, #007AFF, #5856D6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
     }
     .hero p {
       font-size: 18px;
-      color: #6e6e73;
       max-width: 600px;
       margin: 0 auto;
     }
@@ -83,17 +97,22 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     }
     .card .icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 32px;
       margin-bottom: 16px;
     }
     .card h3 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
     .card p { font-size: 14px; color: #6e6e73; line-height: 1.6; }
+    .card-ai { background: linear-gradient(135deg, #e8f0fe 0%, #f3e8ff 50%, #fce7f3 100%); }
+    .card-vscode { background: linear-gradient(135deg, #1d1d1f 0%, #2d1b4e 50%, #1a1a2e 100%); color: #f5f5f7; }
+    .card-vscode p { color: #a1a1a6; }
+    .card-dark { background: #fff; color: #1c1c1e; }
+    .card-dark p { color: #6e6e73; }
 
     /* ── Form Section ── */
     .form-section {
@@ -206,17 +225,17 @@
 
   <!-- Cards -->
   <section class="cards">
-    <div class="card">
+    <div class="card card-dark">
       <div class="icon" style="background: rgba(0, 122, 255, 0.1); color: #007AFF;">🔍</div>
       <h3>元素选择</h3>
       <p>悬停高亮，点击选择。自动提取 tag、class、computed styles 和 React Fiber 信息。</p>
     </div>
-    <div class="card">
+    <div class="card card-ai">
       <div class="icon" style="background: rgba(88, 86, 214, 0.1); color: #5856D6;">🤖</div>
       <h3>AI 修改</h3>
       <p>选中元素后直接对话，描述你想要的改动。支持 Suggest（建议）和 Develop（直接修改）两种模式。</p>
     </div>
-    <div class="card">
+    <div class="card card-vscode">
       <div class="icon" style="background: rgba(52, 199, 89, 0.1); color: #34C759;">⚡</div>
       <h3>VS Code 联动</h3>
       <p>点击源文件链接，直接在 VS Code 中打开对应文件并定位到行号。</p>

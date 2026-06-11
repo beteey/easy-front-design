@@ -6,7 +6,12 @@
 import express from 'express'
 import { WebSocketServer, WebSocket } from 'ws'
 import { createServer, type Server } from 'node:http'
+import { readFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { config } from './config.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 import { openInVSCode } from './vscode.js'
 import { readFileContext } from './fileReader.js'
 import { streamAIResponse, type ChatMessage } from './ai.js'
@@ -28,6 +33,7 @@ type ServerMessage =
   | { type: 'ai:error'; error: string; requestId: string }
   | { type: 'design:queued'; id: string }
   | { type: 'design:processing'; id: string }
+  | { type: 'design:progress'; id: string; message: string }
   | { type: 'design:done'; id: string; action?: 'suggest' | 'develop'; content?: string; summary?: string; changedFiles?: string[] }
   | { type: 'design:failed'; id: string; error: string }
   | { type: 'pong' }
@@ -46,7 +52,7 @@ export default function createApp(): AppInstance {
   app.use((_req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     next()
   })
 
@@ -54,10 +60,28 @@ export default function createApp(): AppInstance {
     res.json({ ok: true, version: '0.1.0' })
   })
 
-  // GET /api/next?timeout=<ms> — long-poll, atomic claim
+  // GET /api/pending — check pending count without dequeuing (safe for polling)
+  app.get('/api/pending', (_req, res) => {
+    const pending = queue.getAll().filter((r) => r.status === 'pending')
+    res.json({ ok: true, count: pending.length })
+  })
+
+  // 测试页面
+  app.get('/', (_req, res) => {
+    try {
+      const testPage = readFileSync(resolve(__dirname, '../../test/index.html'), 'utf-8')
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.send(testPage)
+    } catch {
+      res.status(404).send('Test page not found')
+    }
+  })
+
+  // GET /api/next?timeout=<ms>&workerId=<id> — long-poll, atomic claim
   app.get('/api/next', async (req, res) => {
     const timeoutMs = Math.min(parseInt(String(req.query['timeout'] ?? '30000'), 10), 60_000)
-    const request = await queue.dequeue(timeoutMs)
+    const workerId = (req.query['workerId'] as string) || undefined
+    const request = await queue.dequeue(timeoutMs, workerId)
 
     if (request) {
       // Push design:processing to all connected WS clients
@@ -121,6 +145,39 @@ export default function createApp(): AppInstance {
     res.json({ ok: true })
   })
 
+  // POST /api/progress/:id — Claude Code reports intermediate progress
+  app.post('/api/progress/:id', (req, res) => {
+    const { id } = req.params
+    const { message } = req.body as { message?: string }
+
+    if (!message) {
+      res.status(400).json({ ok: false, error: 'message is required' })
+      return
+    }
+
+    const request = queue.updateProgress(id, message)
+    if (!request) {
+      res.status(404).json({ ok: false, error: 'request not found or not in progress' })
+      return
+    }
+
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'design:progress', id, message }))
+      }
+    })
+
+    res.json({ ok: true })
+  })
+
+  // POST /api/heartbeat/:id — Claude Code keeps the request alive
+  app.post('/api/heartbeat/:id', (req, res) => {
+    const { id } = req.params
+    const { workerId } = req.body as { workerId?: string }
+    const ok = queue.heartbeat(id, workerId)
+    res.json({ ok })
+  })
+
   // GET /api/requests/:id — status lookup for browser reconnection
   app.get('/api/requests/:id', (req, res) => {
     const request = queue.getById(req.params['id']!)
@@ -128,8 +185,8 @@ export default function createApp(): AppInstance {
       res.status(404).json({ ok: false, error: 'not found' })
       return
     }
-    const { id, action, status, summary, changedFiles, content, error, createdAt, claimedAt, completedAt } = request
-    res.json({ id, action, status, summary, changedFiles, content, error, createdAt, claimedAt, completedAt })
+    const { id, action, status, summary, changedFiles, content, error, createdAt, claimedAt, completedAt, element, userMessage } = request
+    res.json({ id, action, status, summary, changedFiles, content, error, createdAt, claimedAt, completedAt, element, userMessage })
   })
 
   const httpServer = createServer(app)

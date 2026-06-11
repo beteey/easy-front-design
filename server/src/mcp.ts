@@ -8,14 +8,55 @@
  * All console output goes to stderr to avoid polluting the MCP stdio stream.
  */
 
+import { spawn } from 'node:child_process'
+import { hostname } from 'node:os'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-
 const SERVER_URL = 'http://127.0.0.1:3771'
+const WORKER_ID = `${hostname()}-${process.pid}`
+
+// ─── Auto-start HTTP server if not running ────────────────────────────────────
+
+async function ensureServerRunning(): Promise<void> {
+  try {
+    const res = await fetch(`${SERVER_URL}/health`)
+    if (res.ok) {
+      process.stderr.write('[mcp] HTTP server already running\n')
+      return
+    }
+  } catch {
+    // not running
+  }
+
+  process.stderr.write('[mcp] starting HTTP server...\n')
+  const serverProc = spawn('node', ['server/dist/index.js'], {
+    cwd: '/Users/lcc/ClaudeProjects/easy-front-design',
+    stdio: 'ignore',
+    detached: true,
+  })
+  serverProc.unref()
+
+  // Wait for server to be ready (max 5s)
+  for (let i = 0; i < 50; i++) {
+    await new Promise((r) => setTimeout(r, 100))
+    try {
+      const res = await fetch(`${SERVER_URL}/health`)
+      if (res.ok) {
+        process.stderr.write('[mcp] HTTP server started\n')
+        return
+      }
+    } catch {
+      // still starting
+    }
+  }
+  process.stderr.write('[mcp] warning: HTTP server may not be ready yet\n')
+}
+
+await ensureServerRunning()
 
 const server = new Server(
   { name: 'design-easily', version: '0.1.0' },
@@ -67,6 +108,35 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ['id', 'status'],
       },
     },
+    {
+      name: 'report_design_progress',
+      description:
+        'Report intermediate progress for a design request. ' +
+        'The message will be displayed to the user in real-time. ' +
+        'Call this during processing to keep the user informed (e.g. "Reading source files...", "Generating code changes...").',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Request ID returned by watch_design_requests' },
+          message: { type: 'string', description: 'Progress message to display to the user' },
+        },
+        required: ['id', 'message'],
+      },
+    },
+    {
+      name: 'heartbeat_design_request',
+      description:
+        'Send a heartbeat to keep a design request alive during processing. ' +
+        'Call this periodically (every 60-120 seconds) when processing takes a long time. ' +
+        'Prevents the request from being marked as timed out.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Request ID returned by watch_design_requests' },
+        },
+        required: ['id'],
+      },
+    },
   ],
 }))
 
@@ -79,7 +149,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       60_000,
     )
     try {
-      const res = await fetch(`${SERVER_URL}/api/next?timeout=${timeoutMs}`)
+      const res = await fetch(`${SERVER_URL}/api/next?timeout=${timeoutMs}&workerId=${encodeURIComponent(WORKER_ID)}`)
       if (!res.ok) throw new Error(`Server responded ${res.status}`)
       const body = await res.json() as { ok: boolean; request: unknown }
       return {
@@ -119,6 +189,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           isError: true,
         }
       }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(body) }] }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Error: cannot reach design-easily server.\n(${msg})`,
+        }],
+        isError: true,
+      }
+    }
+  }
+
+  if (name === 'report_design_progress') {
+    const { id, message } = args as { id: string; message: string }
+    try {
+      const res = await fetch(`${SERVER_URL}/api/progress/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      })
+      const body = await res.json() as { ok: boolean; error?: string }
+      if (!res.ok) {
+        return {
+          content: [{ type: 'text' as const, text: `Server rejected progress: ${body.error ?? res.status}` }],
+          isError: true,
+        }
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(body) }] }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Error: cannot reach design-easily server.\n(${msg})`,
+        }],
+        isError: true,
+      }
+    }
+  }
+
+  if (name === 'heartbeat_design_request') {
+    const { id } = args as { id: string }
+    try {
+      const res = await fetch(`${SERVER_URL}/api/heartbeat/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerId: WORKER_ID }),
+      })
+      const body = await res.json() as { ok: boolean }
       return { content: [{ type: 'text' as const, text: JSON.stringify(body) }] }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

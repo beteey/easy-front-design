@@ -1,0 +1,91 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 260px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  color: #1c1c1e;
+  overflow: hidden;
+}
+
+/* ── Status Bar ── */
+.statusbar {
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.status-icon {
+  flex-shrink: 0;
+}
+.status-icon--off {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #d1d1d6;
+  box-sizing: border-box;
+}
+
+/* ── Inspect Toggle ── */
+.inspect-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+.inspect-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+.toggle-btn {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  background: #e0e0e5;
+}
+
+.toggle-btn.active {
+  background: #34C759;
+}
+
+.toggle-btn::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 0.2s;
+}
+
+.toggle-btn.active::after {
+  transform: translateX(18px);
+}
+
