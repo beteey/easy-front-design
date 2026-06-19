@@ -1,6 +1,6 @@
 # easy-front-design
 
-网页端设计辅助 Chrome 插件 — 在浏览器上选择元素，通过对话或可视化编辑器修改样式，AI 直接帮你改源码。
+网页端设计辅助 Chrome 插件 — 在浏览器上选择元素，通过对话或可视化编辑器修改样式，配置专属模型，AI 直接帮你改源码（以Deepseek为例）。
 
 ## ✨ 特性
 
@@ -95,17 +95,6 @@ npm start
 2. **Server**：Express + WebSocket 服务器，管理设计请求队列
 3. **DeepSeek Worker**：自动轮询队列，调用 DeepSeek API 处理请求
 4. **文件修改**：直接读写源文件，无需额外工具
-
-### 与原版项目的区别
-
-| 特性 | 原版 (Claude Code) | 我们的版本 (DeepSeek) |
-|------|-------------------|----------------------|
-| 处理方式 | 依赖 Claude Code CLI | DeepSeek API 自动处理 |
-| API Key | 不需要（用本地 Claude Code） | 需要配置 DeepSeek API Key |
-| 项目路径 | 自动获取 | 需要用户配置 |
-| 响应速度 | 取决于 Claude Code 启动速度 | 2 秒轮询 + API 调用 |
-| 并行处理 | ❌ 不支持 | ✅ 最多 3 个并行 |
-| 验证机制 | Claude Code 自动验证 | DeepSeek API 验证 |
 
 ## 📁 项目结构
 

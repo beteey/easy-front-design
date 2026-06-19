@@ -415,6 +415,26 @@ const PANEL_STYLES = `
     color: #1c1c1e;
     background: rgba(255,255,255,0.7);
   }
+  .btn-apply {
+    width: 100%;
+    padding: 10px;
+    margin-top: 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-apply:hover {
+    opacity: 0.9;
+  }
+  .btn-apply:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `
 
 /**
@@ -639,6 +659,7 @@ export class InspectPanel {
           ${row('宽度', numInput('width', cs.width))}
           ${row('高度', numInput('height', cs.height))}
         </div>
+        <button class="btn-apply" data-action="apply-editor">⚡ 应用到源码</button>
       </div>
     `
   }
@@ -663,6 +684,12 @@ export class InspectPanel {
         const unit = prop === 'color' || prop === 'backgroundColor' ? '' : 'px'
         ;(el as HTMLElement).style.setProperty(prop, val + unit)
       })
+    })
+
+    // 编辑器：应用到源码按钮
+    const applyBtn = this.shadow.querySelector('[data-action="apply-editor"]')
+    applyBtn?.addEventListener('click', () => {
+      this.applyEditorChanges()
     })
 
     // 点击源文件链接 → 在 VS Code 中打开
@@ -718,6 +745,63 @@ export class InspectPanel {
         type: 'design:request',
         action: 'develop',
         userMessage: text,
+        element: {
+          tag,
+          id,
+          classList,
+          textContent,
+          computedStyles,
+          sourceFile: fiber.sourceFile,
+          sourceLine: fiber.sourceLine,
+          pageUrl: window.location.href,
+          projectPath,
+          model,
+        },
+      })
+    })
+  }
+
+  /** 应用编辑器中的修改到源码 */
+  private applyEditorChanges(): void {
+    if (!this.getEl() || this.pendingRequestId) return
+
+    // 收集编辑器中的所有修改
+    const changes: string[] = []
+    this.shadow.querySelectorAll('.editor-input, .editor-color, .editor-select').forEach((input) => {
+      const prop = (input as HTMLElement).dataset.prop
+      const val = (input as HTMLInputElement | HTMLSelectElement).value
+      if (prop && val) {
+        const unit = prop === 'color' || prop === 'backgroundColor' ? '' : 'px'
+        changes.push(`${prop}: ${val}${unit}`)
+      }
+    })
+
+    if (changes.length === 0) {
+      this.addMessage('assistant', '⚠️ 没有修改任何样式')
+      return
+    }
+
+    // 构建用户消息
+    const userMessage = `应用以下样式修改：\n${changes.join('\n')}`
+
+    // 切换到对话模式并显示消息
+    this.panelMode = 'chat'
+    this.addMessage('user', userMessage)
+    this.addMessage('assistant', '⏳ 已发送，等待处理...')
+    this.pendingMode = 'develop'
+
+    // 从 storage 获取用户配置
+    chrome.storage.local.get('deepseekSettings', (result) => {
+      const settings = result.deepseekSettings || {}
+      const projectPath = settings.projectPath || ''
+      const model = settings.model || 'deepseek-chat'
+
+      // 收集元素上下文并发送
+      const { tag, id, classList, computedStyles, textContent, fiber } = this.ctx!
+      wsClient.send({
+        type: 'design:request',
+        action: 'develop',
+        userMessage,
         element: {
           tag,
           id,
