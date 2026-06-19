@@ -34,6 +34,7 @@ type ServerMessage =
   | { type: 'design:queued'; id: string }
   | { type: 'design:processing'; id: string }
   | { type: 'design:progress'; id: string; message: string }
+  | { type: 'design:retry'; id: string; message: string }
   | { type: 'design:done'; id: string; action?: 'suggest' | 'develop'; content?: string; summary?: string; changedFiles?: string[] }
   | { type: 'design:failed'; id: string; error: string }
   | { type: 'pong' }
@@ -81,7 +82,14 @@ export default function createApp(): AppInstance {
   app.get('/api/next', async (req, res) => {
     const timeoutMs = Math.min(parseInt(String(req.query['timeout'] ?? '30000'), 10), 60_000)
     const workerId = (req.query['workerId'] as string) || undefined
+
+    // Track active worker
+    if (workerId) activeWorkers.set(workerId, Date.now())
+
     const request = await queue.dequeue(timeoutMs, workerId)
+
+    // Update worker timestamp after dequeue
+    if (workerId) activeWorkers.set(workerId, Date.now())
 
     if (request) {
       // Push design:processing to all connected WS clients
@@ -178,6 +186,17 @@ export default function createApp(): AppInstance {
     res.json({ ok })
   })
 
+  // GET /api/workers — check how many Claude Code instances are polling
+  const activeWorkers = new Map<string, number>() // workerId -> last seen timestamp
+  app.get('/api/workers', (_req, res) => {
+    const now = Date.now()
+    // Clean up workers not seen in 30 seconds
+    for (const [id, lastSeen] of activeWorkers) {
+      if (now - lastSeen > 30_000) activeWorkers.delete(id)
+    }
+    res.json({ ok: true, count: activeWorkers.size })
+  })
+
   // GET /api/requests/:id — status lookup for browser reconnection
   app.get('/api/requests/:id', (req, res) => {
     const request = queue.getById(req.params['id']!)
@@ -255,6 +274,15 @@ export default function createApp(): AppInstance {
           }
           break
         }
+      }
+    })
+  })
+
+  // Broadcast design:retry when a stale request is re-enqueued
+  queue.on('stale', (id: string) => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'design:retry', id, message: '⏳ 请求超时，正在重新分配...' }))
       }
     })
   })

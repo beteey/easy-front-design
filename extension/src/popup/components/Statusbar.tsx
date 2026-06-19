@@ -13,7 +13,7 @@ function StatusIcon({ connected }: { connected: boolean }) {
 }
 
 export function Statusbar() {
-  const { serverOnline, wsConnected } = useStatus()
+  const { serverOnline, wsConnected, mcpConnected } = useStatus()
 
   return (
     <div class="statusbar">
@@ -26,7 +26,7 @@ export function Statusbar() {
         WebSocket
       </div>
       <div class="status-item">
-        <StatusIcon connected={serverOnline} />
+        <StatusIcon connected={mcpConnected} />
         MCP
       </div>
     </div>

@@ -262,3 +262,12 @@ const transport = new StdioServerTransport()
 await server.connect(transport)
 // Log to stderr only — stdout is reserved for MCP protocol
 process.stderr.write('design-easily MCP server started\n')
+
+// 定期向服务器报到，保持 worker 注册状态（每 20 秒一次，30 秒过期前刷新）
+setInterval(async () => {
+  try {
+    await fetch(`${SERVER_URL}/api/next?timeout=1000&workerId=${encodeURIComponent(WORKER_ID)}`)
+  } catch {
+    // 服务器未运行时静默忽略
+  }
+}, 20_000)

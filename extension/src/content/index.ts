@@ -97,7 +97,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // Forward WebSocket responses to popup
 wsClient.onMessage((msg) => {
-  if (['ai:chunk', 'ai:done', 'ai:error', 'design:queued', 'design:processing', 'design:progress', 'design:done', 'design:failed'].includes(msg.type)) {
+  if (['ai:chunk', 'ai:done', 'ai:error', 'design:queued', 'design:processing', 'design:progress', 'design:retry', 'design:done', 'design:failed'].includes(msg.type)) {
     safeSendMessage({ type: 'ws-message', data: msg })
   }
 })

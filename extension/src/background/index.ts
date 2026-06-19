@@ -53,6 +53,19 @@ async function pollHealth(): Promise<void> {
     notifyAllTabs(online)
     chrome.storage.local.set({ serverOnline: online })
   }
+
+  // 检查 MCP 连接状态：服务器在线时查询活跃 worker 数量
+  if (online) {
+    try {
+      const res = await fetch('http://127.0.0.1:3771/api/workers', { signal: AbortSignal.timeout(3000) })
+      const data = await res.json() as { ok: boolean; count: number }
+      chrome.storage.local.set({ mcpConnected: data.ok && data.count > 0 })
+    } catch {
+      chrome.storage.local.set({ mcpConnected: false })
+    }
+  } else {
+    chrome.storage.local.set({ mcpConnected: false })
+  }
 }
 
 // Initial check + periodic polling

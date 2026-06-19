@@ -45,13 +45,13 @@
     .hero {
       text-align: center;
       padding: 80px 32px 48px;
-      background: linear-gradient(180deg, #fafafa 0%, #f0f0f5 100%);
+      background: #1d1d1f;
       border-bottom: 1px solid rgba(0,0,0,0.04);
     }
     .hero h1 {
       position: relative;
       z-index: 1;
-      background: linear-gradient(135deg, #a1a1a6 0%, #5856D6 100%);
+      background: black linear-gradient(135deg, #a1a1a6 0%, #5856D6 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -65,15 +65,20 @@
       color: #1d1d1f !important;
     }
     .hero h1 {
-      font-size: 48px;
+      font-size: 56px;
       font-weight: 700;
       letter-spacing: -0.02em;
       margin-bottom: 16px;
     }
     .hero p {
       font-size: 18px;
+      line-height: 1.8;
+      letter-spacing: 0.02em;
+      font-weight: 400;
+      color: #f5f5f7;
       max-width: 600px;
       margin: 0 auto;
+      font-family: sans-serif;
     }
 
     /* ── Cards Grid ── */
@@ -111,12 +116,12 @@
     .card-ai { background: linear-gradient(135deg, #e8f0fe 0%, #f3e8ff 50%, #fce7f3 100%); }
     .card-vscode { background: linear-gradient(135deg, #1d1d1f 0%, #2d1b4e 50%, #1a1a2e 100%); color: #f5f5f7; }
     .card-vscode p { color: #a1a1a6; }
-    .card-dark { background: #fff; color: #1c1c1e; }
-    .card-dark p { color: #6e6e73; }
+    .card-dark { background: #1c1c1e; color: #f5f5f7; }
+    .card-dark p { color: #a1a1a6; }
 
     /* ── Form Section ── */
     .form-section {
-      max-width: 480px;
+      max-width: 640px;
       margin: 32px auto;
       padding: 32px;
       background: #fff;
@@ -203,6 +208,11 @@
       font-size: 13px;
       border-top: 1px solid rgba(0, 0, 0, 0.06);
     }
+
+    /* ── Container (用户要求) ── */
+    .container {
+      background-color: yellow;
+    }
   </style>
 </head>
 <body>
@@ -226,7 +236,7 @@
   <!-- Cards -->
   <section class="cards">
     <div class="card card-dark">
-      <div class="icon" style="background: rgba(0, 122, 255, 0.1); color: #007AFF;">🔍</div>
+      <div class="icon" style="background: rgba(0, 122, 255, 0.1); color: #007AFF;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
       <h3>元素选择</h3>
       <p>悬停高亮，点击选择。自动提取 tag、class、computed styles 和 React Fiber 信息。</p>
     </div>

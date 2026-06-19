@@ -56,6 +56,17 @@ export function useChat() {
         })
       }
 
+      if (data.type === 'design:retry') {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last?.role === 'assistant') {
+            last.content = `🔄 ${data.message}`
+          }
+          return [...updated]
+        })
+      }
+
       if (data.type === 'design:done') {
         const text = data.action === 'suggest'
           ? (data.content ?? '(未返回内容)')

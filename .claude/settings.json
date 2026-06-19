@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "design-easily": {
+      "command": "node",
+      "args": ["server/dist/mcp.js"],
+      "cwd": "/Users/lcc/ClaudeProjects/easy-front-design"
+    }
+  },
+  "skills": [
+    {
+      "name": "storage-analyzer",
+      "path": ".claude/skills/storage-analyzer/SKILL.md"
+    }
+  ]
+}

@@ -230,8 +230,10 @@ const PANEL_STYLES = `
     padding: 10px 12px;
     flex: 1;
     min-height: 180px;
+    max-height: 400px;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
   .chat-messages {
     flex: 1;
@@ -274,21 +276,22 @@ const PANEL_STYLES = `
   }
   .chat-input-row {
     display: flex;
-    gap: 6px;
-    align-items: center;
+    gap: 10px;
+    align-items: stretch;
   }
   .chat-input {
     flex: 1;
+    min-width: 0;
+    height: 48px;
     border: 1px solid rgba(0,0,0,0.12);
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 13px;
+    border-radius: 12px;
+    padding: 0 14px;
+    font-size: 14px;
     font-family: inherit;
     outline: none;
     background: rgba(255,255,255,0.7);
     color: #1c1c1e;
     transition: border-color 0.15s;
-    height: 40px;
   }
   .chat-input:focus {
     border-color: #007AFF;
@@ -297,14 +300,15 @@ const PANEL_STYLES = `
     flex-shrink: 0;
   }
   .btn-develop {
-    height: 40px;
-    padding: 0 16px;
-    border-radius: 8px;
+    flex-shrink: 0;
+    height: 48px;
+    padding: 0 18px;
+    border-radius: 12px;
     background: #007AFF;
     color: white;
     border: none;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     font-family: inherit;
     white-space: nowrap;
@@ -475,6 +479,10 @@ export class InspectPanel {
       if (msg.type === 'design:progress') {
         if (msg.id !== this.pendingRequestId) return
         this.updateLastAssistantMessage(`⚙️ ${msg.message}`)
+      }
+      if (msg.type === 'design:retry') {
+        if (msg.id !== this.pendingRequestId) return
+        this.updateLastAssistantMessage(`🔄 ${msg.message}`)
       }
       if (msg.type === 'design:done') {
         if (msg.id !== this.pendingRequestId) return
@@ -695,24 +703,34 @@ export class InspectPanel {
     this.setButtonsDisabled(true)
 
     // 开发模式：走队列，等 Claude Code 处理
-    this.addMessage('assistant', '⏳ 已发送，等待 Claude Code...')
+    this.addMessage('assistant', '⏳ 已发送，等待处理...')
     this.pendingMode = 'develop'
 
-    // 收集元素上下文并发送
-    const { tag, id, classList, computedStyles, textContent, fiber } = this.ctx!
-    wsClient.send({
-      type: 'design:request',
-      action: 'develop',
-      userMessage: text,
-      element: {
-        tag,
-        id,
-        classList,
-        textContent,
-        computedStyles,
-        sourceFile: fiber.sourceFile,
-        sourceLine: fiber.sourceLine,
-      },
+    // 从 storage 获取用户配置
+    chrome.storage.local.get('deepseekSettings', (result) => {
+      const settings = result.deepseekSettings || {}
+      const projectPath = settings.projectPath || ''
+      const model = settings.model || 'deepseek-chat'
+
+      // 收集元素上下文并发送
+      const { tag, id, classList, computedStyles, textContent, fiber } = this.ctx!
+      wsClient.send({
+        type: 'design:request',
+        action: 'develop',
+        userMessage: text,
+        element: {
+          tag,
+          id,
+          classList,
+          textContent,
+          computedStyles,
+          sourceFile: fiber.sourceFile,
+          sourceLine: fiber.sourceLine,
+          pageUrl: window.location.href,
+          projectPath,
+          model,
+        },
+      })
     })
   }
 

@@ -14,6 +14,9 @@ export interface ElementContext {
   computedStyles: Record<string, string>
   sourceFile?: string
   sourceLine?: number
+  pageUrl?: string
+  projectPath?: string
+  model?: string
 }
 
 export type RequestStatus = 'pending' | 'claimed' | 'completed' | 'failed'
@@ -43,8 +46,8 @@ export interface CompletePayload {
   error?: string
 }
 
-const STALE_MS = 5 * 60 * 1000    // 5 minutes
-const CLEANUP_INTERVAL_MS = 60_000 // 1 minute
+const STALE_MS = 120_000            // 2 minutes — 给 Claude Code 足够的处理时间
+const CLEANUP_INTERVAL_MS = 5_000  // 5 seconds
 
 class DesignQueue extends EventEmitter {
   private pending: string[] = []
@@ -145,6 +148,9 @@ class DesignQueue extends EventEmitter {
     const request = this.requestsById.get(id)
     if (!request || request.status !== 'claimed') return undefined
     request.progress = message
+    // Also refresh lastSeen so active processing isn't marked stale
+    const flight = this.inFlight.get(id)
+    if (flight) flight.lastSeen = Date.now()
     return request
   }
 
@@ -158,8 +164,12 @@ class DesignQueue extends EventEmitter {
       if (lastSeen < cutoff) {
         const request = this.requestsById.get(id)
         if (request) {
-          request.status = 'failed'
-          request.error = 'timed out'
+          // Re-enqueue instead of failing — another worker can pick it up
+          request.status = 'pending'
+          request.error = undefined
+          request.claimedAt = undefined
+          request.claimedBy = undefined
+          this.pending.push(id)
         }
         this.inFlight.delete(id)
         this.emit('stale', id)
