@@ -678,11 +678,27 @@ export class InspectPanel {
     this.shadow.querySelectorAll('.editor-input, .editor-color, .editor-select').forEach((input) => {
       input.addEventListener('input', () => {
         const prop = (input as HTMLElement).dataset.prop
-        if (!prop || !this.getEl()) return
-        const el = this.getEl()!
+        if (!prop) return
+        const el = this.getEl()
+        if (!el) {
+          console.log(`[编辑器] 错误: selectedEl 是 null`)
+          return
+        }
         const val = (input as HTMLInputElement | HTMLSelectElement).value
         const unit = prop === 'color' || prop === 'backgroundColor' ? '' : 'px'
-        ;(el as HTMLElement).style.setProperty(prop, val + unit)
+        // 把 camelCase 转换成 kebab-case（如 backgroundColor → background-color）
+        const cssProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase()
+        console.log(`[编辑器] 修改样式: ${cssProp} = ${val}${unit}, 元素:`, el)
+
+        // 对于 font-size，同时修改所有子元素（因为子元素可能有自己的 font-size）
+        if (prop === 'fontSize') {
+          const allElements = [el, ...el.querySelectorAll('*')]
+          allElements.forEach((element) => {
+            ;(element as HTMLElement).style.setProperty(cssProp, val + unit)
+          })
+        } else {
+          ;(el as HTMLElement).style.setProperty(cssProp, val + unit)
+        }
       })
     })
 
